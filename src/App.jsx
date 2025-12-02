@@ -43,20 +43,26 @@ import {
 
 // --- CONFIGURAÇÃO DO FIREBASE ---
 // IMPORTANTE: No Vercel, estas variáveis virão do process.env
-const firebaseConfig = JSON.parse(
-  typeof __firebase_config !== 'undefined' ? __firebase_config : '{}'
-);
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
+};
 
-// Fallback para evitar erro se a config estiver vazia (apenas para evitar crash visual)
-if (!firebaseConfig.apiKey && typeof window !== 'undefined') {
-  console.warn("Firebase Config não encontrada. O login não funcionará sem as credenciais reais.");
+// Fallback visual caso esqueça a configuração
+if (!firebaseConfig.apiKey) {
+  console.warn("Firebase Config não encontrada. Verifique seu arquivo .env");
 }
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'young-ats';
+// Remova a dependência de __app_id e use o ID do projeto ou uma string fixa
+const appId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'young-ats'; 
 
 // --- MOCK DATA (Fallback) ---
 const MOCK_CANDIDATES = [
