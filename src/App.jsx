@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Loader2, AlertCircle, Filter } from 'lucide-react';
+import { Plus, Loader2, AlertCircle, LayoutGrid, List as ListIcon, MoreHorizontal, Calendar, Phone } from 'lucide-react';
 
-// Firebase
+// Firebase (mantido igual)
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import { collection, query, onSnapshot, updateDoc, doc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './lib/firebase';
@@ -9,9 +9,10 @@ import { auth, db, googleProvider } from './lib/firebase';
 // Componentes
 import LoginScreen from './components/Auth/LoginScreen';
 import Sidebar from './components/Layout/Sidebar';
-import Badge from './components/UI/Badge';
 import CandidateModal from './components/Modals/CandidateModal';
 import { KanbanColumn } from './components/Kanban/Column';
+import PipelineStats from './components/Dashboard/PipelineStats'; // Novo
+import FilterBar from './components/Dashboard/FilterBar'; // Novo
 
 const PIPELINE_STAGES = [
   { id: 'Inscrito', label: 'Inscrito', color: 'bg-slate-500' },
@@ -30,7 +31,9 @@ export default function App() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [view, setView] = useState('kanban'); 
   const [selectedCandidate, setSelectedCandidate] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Estado unificado de filtros
+  const [filters, setFilters] = useState({ name: '',RP: '', role: '', location: '' });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -56,13 +59,12 @@ export default function App() {
   }, [user]);
 
   const filteredCandidates = useMemo(() => {
-    const s = searchTerm.toLowerCase();
     return candidates.filter(c => 
-      (c.nome?.toLowerCase() || '').includes(s) || 
-      (c.email?.toLowerCase() || '').includes(s) || 
-      (c.cargo?.toLowerCase() || '').includes(s)
+      (c.nome?.toLowerCase() || '').includes(filters.name.toLowerCase()) &&
+      (c.cargo?.toLowerCase() || '').includes(filters.role.toLowerCase()) &&
+      (c.cidade?.toLowerCase() || '').includes(filters.location.toLowerCase())
     );
-  }, [candidates, searchTerm]);
+  }, [candidates, filters]);
 
   const handleUpdate = async (id, data) => {
     setCandidates(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
@@ -88,45 +90,62 @@ export default function App() {
     <div className="flex h-screen bg-[#f8fafc] text-slate-800 font-sans overflow-hidden">
       <Sidebar view={view} setView={setView} user={user} onLogout={() => signOut(auth)} />
 
-      <main className="flex-1 flex flex-col min-w-0">
-        {/* Header Moderno */}
-        <header className="bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 py-5 flex justify-between items-center z-20 sticky top-0">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        {/* Background Blob Decorativo (Sutil) */}
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-brand-100/40 rounded-full blur-[100px] -z-10 translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+
+        {/* Header Superior */}
+        <header className="px-8 py-6 flex justify-between items-center z-20">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-              {view === 'kanban' ? 'Pipeline de Vagas' : 'Banco de Talentos'}
+              Gestão de Talentos
             </h1>
-            <p className="text-sm text-slate-500 mt-1 font-medium">
-              {candidates.length} talentos ativos
+            <p className="text-slate-500 mt-1 font-medium">
+              Visão geral do seu pipeline de contratação
             </p>
           </div>
           
-          <div className="flex gap-3 items-center">
-            <div className="relative group">
-              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-brand-600 transition-colors" />
-              <input 
-                type="text" 
-                placeholder="Buscar candidatos..." 
-                className="pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 outline-none w-64 transition-all"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-            </div>
+          <div className="flex items-center gap-3">
+             {/* Toggle de Visualização */}
+             <div className="bg-white border border-slate-200 rounded-lg p-1 flex">
+                <button 
+                  onClick={() => setView('kanban')}
+                  className={`p-2 rounded-md transition-all ${view === 'kanban' ? 'bg-slate-100 text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  <LayoutGrid size={18} />
+                </button>
+                <button 
+                  onClick={() => setView('list')}
+                  className={`p-2 rounded-md transition-all ${view === 'list' ? 'bg-slate-100 text-slate-900 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  <ListIcon size={18} />
+                </button>
+             </div>
+
             <button className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 active:scale-95 transition-all flex items-center gap-2 shadow-lg shadow-slate-900/20">
-              <Plus size={18} /> <span className="hidden sm:inline">Novo Candidato</span>
+              <Plus size={18} /> <span className="hidden sm:inline">Adicionar</span>
             </button>
           </div>
         </header>
 
-        {errorMsg && <div className="bg-red-50 text-red-600 px-6 py-3 text-sm flex items-center gap-2"><AlertCircle size={16} /> {errorMsg}</div>}
+        {errorMsg && <div className="mx-8 mb-4 bg-red-50 text-red-600 px-6 py-3 rounded-xl text-sm flex items-center gap-2 border border-red-100"><AlertCircle size={16} /> {errorMsg}</div>}
 
-        <div className="flex-1 overflow-hidden p-6 bg-[#f8fafc]">
+        <div className="flex-1 overflow-y-auto px-8 pb-8 scrollbar-thin scrollbar-thumb-slate-200">
+          
+          {/* Seção de Métricas (Estilo da imagem) */}
+          <PipelineStats stages={PIPELINE_STAGES} candidates={candidates} />
+
+          {/* Barra de Filtros */}
+          <FilterBar filters={filters} setFilters={setFilters} />
+
           {loadingData && candidates.length === 0 ? (
-             <div className="flex h-full flex-col items-center justify-center text-slate-400 gap-3">
+             <div className="flex h-64 flex-col items-center justify-center text-slate-400 gap-3">
                <Loader2 className="animate-spin w-8 h-8 text-brand-600" />
-               <p className="text-sm font-medium">Sincronizando dados...</p>
+               <p className="text-sm font-medium">Carregando pipeline...</p>
              </div>
           ) : view === 'kanban' ? (
-            <div className="flex h-full gap-6 overflow-x-auto pb-4 px-2 items-start">
+            // Visualização Kanban (Refinada)
+            <div className="flex gap-6 overflow-x-auto pb-4 items-start min-h-[500px]">
               {PIPELINE_STAGES.map(stage => (
                 <KanbanColumn 
                   key={stage.id}
@@ -138,38 +157,63 @@ export default function App() {
               ))}
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-full flex flex-col">
-              <div className="overflow-auto flex-1">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200 sticky top-0 z-10">
-                    <tr>
-                      <th className="px-6 py-4 w-1/3">Candidato</th>
-                      <th className="px-6 py-4">Etapa</th>
-                      <th className="px-6 py-4">Cargo</th>
-                      <th className="px-6 py-4">Localização</th>
-                      <th className="px-6 py-4 text-right"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredCandidates.map(c => (
-                      <tr key={c.id} onClick={() => setSelectedCandidate(c)} className="hover:bg-brand-50/50 cursor-pointer transition-colors group">
+            // Visualização em Lista (Estilo SaaS Moderno - Card Rows)
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-4 w-1/4">Candidato</th>
+                    <th className="px-6 py-4">Status / Etapa</th>
+                    <th className="px-6 py-4">Cargo</th>
+                    <th className="px-6 py-4">Contato</th>
+                    <th className="px-6 py-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredCandidates.map(c => {
+                    const stage = PIPELINE_STAGES.find(s => s.id === c.etapa) || PIPELINE_STAGES[0];
+                    const initials = c.nome ? c.nome.charAt(0) : '?';
+                    // Cor de fundo do avatar baseada no nome
+                    const avatarColor = ['bg-blue-100 text-blue-600', 'bg-purple-100 text-purple-600', 'bg-emerald-100 text-emerald-600', 'bg-orange-100 text-orange-600'][c.nome?.length % 4];
+
+                    return (
+                      <tr key={c.id} onClick={() => setSelectedCandidate(c)} className="hover:bg-slate-50/80 cursor-pointer transition-colors group">
                         <td className="px-6 py-4">
-                          <div className="font-bold text-slate-900">{c.nome}</div>
-                          <div className="text-xs text-slate-500">{c.email}</div>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${avatarColor}`}>
+                              {initials}
+                            </div>
+                            <div>
+                              <div className="font-bold text-slate-900">{c.nome}</div>
+                              <div className="text-xs text-slate-500">Adicionado hoje</div>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-6 py-4">
-                          <Badge colorClass="bg-slate-100 text-slate-700 border border-slate-200">{c.etapa}</Badge>
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${stage.color.replace('bg-', 'bg-opacity-10 bg-').replace('bg-', 'text-').replace('bg-', 'border-')}`}>
+                            {c.etapa}
+                          </span>
                         </td>
-                        <td className="px-6 py-4 text-slate-600">{c.cargo}</td>
-                        <td className="px-6 py-4 text-slate-500">{c.cidade}</td>
+                        <td className="px-6 py-4">
+                          <div className="text-slate-700 font-medium">{c.cargo}</div>
+                          <div className="text-xs text-slate-400">Tempo integral</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-1 text-xs text-slate-500">
+                             <span className="flex items-center gap-1"><Calendar size={12}/> {c.idade ? `${c.idade} anos` : 'N/A'}</span>
+                             <span className="flex items-center gap-1"><Phone size={12}/> {c.telefone || 'N/A'}</span>
+                          </div>
+                        </td>
                         <td className="px-6 py-4 text-right">
-                          <button className="text-brand-600 font-medium text-xs hover:underline">Ver Perfil</button>
+                          <button className="text-slate-400 hover:text-brand-600 hover:bg-brand-50 p-2 rounded-full transition-colors">
+                            <MoreHorizontal size={18} />
+                          </button>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
